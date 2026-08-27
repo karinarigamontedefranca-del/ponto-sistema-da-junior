@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulso — Dashboard de Ponto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1116; --panel:#161B24; --panel-2:#1D2432; --panel-3:#242C3D;
+    --border:#262E3D; --border-soft:#1F2634;
+    --text:#EDEFF3; --muted:#8891A3; --muted-2:#5C6579;
+    --gold:#F2B84B; --teal:#3FD6C6; --violet:#8B7CF6; --red:#F2545B; --green:#5DD68A;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text); font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased; padding-bottom:60px;
+  }
+  h1,h2,h3{ font-family:'Space Grotesk',sans-serif; margin:0; letter-spacing:-0.01em; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  button{ font-family:'Inter',sans-serif; cursor:pointer; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 20px; }
+
+  /* ===== TOP BAR ===== */
+  .topbar{
+    position:sticky; top:0; z-index:30; background:rgba(14,17,22,0.92); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border-soft);
+  }
+  .topbar-inner{
+    max-width:1180px; margin:0 auto; padding:14px 20px;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand .dot-clock{ width:26px; height:26px; border-radius:50%; border:2px solid var(--gold); position:relative; flex-shrink:0; }
+  .brand .dot-clock::before,.brand .dot-clock::after{ content:''; position:absolute; background:var(--gold); border-radius:2px; top:50%; left:50%; transform-origin:1px 1px; }
+  .brand .dot-clock::before{ width:6px; height:1.6px; transform:rotate(120deg); }
+  .brand .dot-clock::after{ width:8px; height:1.6px; transform:rotate(20deg); }
+  .brand h1{ font-size:17px; }
+
+  .tabs{ display:flex; gap:2px; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:3px; }
+  .tab-btn{
+    background:none; border:none; color:var(--muted); font-size:13px; font-weight:600;
+    padding:7px 16px; border-radius:7px; transition:all .15s;
+  }
+  .tab-btn.active{ background:var(--gold); color:#181206; }
+  .tab-btn:not(.active):hover{ color:var(--text); }
+
+  .live-status{ display:flex; align-items:center; gap:9px; font-size:11.5px; color:var(--muted); }
+  .pulse{ width:7px; height:7px; border-radius:50%; background:var(--green); position:relative; flex-shrink:0; }
+  .pulse::after{ content:''; position:absolute; inset:-4px; border-radius:50%; border:1px solid var(--green); animation:pulseRing 1.8s ease-out infinite; }
+  @keyframes pulseRing{ 0%{transform:scale(.6);opacity:.9;} 100%{transform:scale(2.2);opacity:0;} }
+  .icon-btn{ background:none; border:1px solid var(--border); color:var(--text); border-radius:7px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  .icon-btn:hover{ border-color:var(--teal); color:var(--teal); }
+
+  #err-banner{ display:none; background:rgba(242,84,91,.1); border:1px solid var(--red); color:#ffb4b8; padding:12px 16px; border-radius:10px; font-size:13px; margin:18px 0; line-height:1.5; }
+
+  /* ===== PAGE HEAD ===== */
+  .page-head{ margin:26px 0 18px; }
+  .page-head h2{ font-size:20px; margin-bottom:3px; }
+  .page-head .sub{ color:var(--muted); font-size:13px; }
+
+  /* ===== FILTER BAR ===== */
+  .filterbar{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:14px 16px; margin-bottom:22px; display:flex; flex-wrap:wrap; gap:10px 22px; align-items:center;
+  }
+  .filter-group{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+  .filter-label{ font-size:10.5px; color:var(--muted-2); text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-right:2px; }
+  .chip{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--muted);
+    padding:6px 13px; border-radius:20px; font-size:12.5px; cursor:pointer; user-select:none; transition:all .15s; white-space:nowrap;
+  }
+  .chip:hover{ color:var(--text); border-color:#3a4356; }
+  .chip.active{ background:var(--gold); color:#181206; border-color:var(--gold); font-weight:600; }
+  .chip.custom-day{ background:var(--teal); color:#0a2b28; border-color:var(--teal); font-weight:600; display:flex; align-items:center; gap:6px; }
+  .chip.custom-day .x{ opacity:.7; }
+  .chip.custom-day .x:hover{ opacity:1; }
+
+  select{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:6px 10px; border-radius:7px; font-size:12.5px; font-family:'Inter',sans-serif; min-width:130px;
+  }
+
+  .cal-btn-wrap{ position:relative; }
+  .cal-btn{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--muted);
+    padding:6px 12px; border-radius:20px; font-size:12.5px; display:flex; align-items:center; gap:6px;
+  }
+  .cal-btn:hover{ color:var(--text); border-color:#3a4356; }
+  .cal-popover{
+    display:none; position:absolute; top:calc(100% + 8px); left:0; z-index:50;
+    background:var(--panel-3); border:1px solid var(--border); border-radius:12px; padding:14px; width:260px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.4);
+  }
+  .cal-popover.open{ display:block; }
+  .cal-nav{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .cal-nav .lbl{ font-size:13px; font-weight:600; text-transform:capitalize; }
+  .cal-nav button{ background:none; border:1px solid var(--border); color:var(--text); border-radius:6px; width:24px; height:24px; font-size:12px; }
+  .cal-nav button:hover{ border-color:var(--teal); color:var(--teal); }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .cal-dow{ font-size:9.5px; color:var(--muted-2); text-align:center; padding-bottom:4px; }
+  .cal-day{
+    aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:6px;
+    font-size:11.5px; color:var(--muted); cursor:pointer; position:relative;
+  }
+  .cal-day:hover{ background:var(--panel-2); color:var(--text); }
+  .cal-day.empty{ cursor:default; }
+  .cal-day.empty:hover{ background:none; }
+  .cal-day.has-data::after{ content:''; position:absolute; bottom:3px; width:3px; height:3px; border-radius:50%; background:var(--teal); }
+  .cal-day.today{ border:1px solid var(--gold); }
+  .cal-day.selected{ background:var(--gold); color:#181206; font-weight:700; }
+  .cal-day.selected::after{ background:#181206; }
+
+  .search-input{ flex:1; min-width:170px; }
+  .search-input input{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:7px 11px; border-radius:8px; font-size:13px;
+  }
+
+  /* ===== KPI ===== */
+  .kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+  .kpi{ background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+  .kpi .label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:7px; }
+  .kpi .value{ font-family:'Space Grotesk',sans-serif; font-size:27px; font-weight:600; }
+  .kpi .value .unit{ font-size:13px; color:var(--muted); font-weight:400; font-family:'Inter',sans-serif; margin-left:3px; }
+  @media (max-width:800px){ .kpis{ grid-template-columns:repeat(2,1fr); } }
+
+  /* ===== NOW STRIP ===== */
+  .now-strip{
+    background:linear-gradient(90deg, rgba(93,214,138,0.10), rgba(93,214,138,0.02));
+    border:1px solid rgba(93,214,138,0.35); border-radius:12px; padding:12px 18px; margin-bottom:24px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:13px;
+  }
+  .now-strip .title{ font-weight:600; color:var(--green); display:flex; align-items:center; gap:8px; }
+  .now-tag{ background:rgba(93,214,138,0.14); border:1px solid rgba(93,214,138,0.4); color:#c9f5da; padding:4px 11px; border-radius:20px; font-size:12px; }
+
+  /* ===== SECTIONS ===== */
+  section{ margin-bottom:30px; }
+  .section-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; flex-wrap:wrap; gap:6px; }
+  .section-head h2{ font-size:15.5px; }
+  .section-head .hint{ font-size:12px; color:var(--muted); }
+  .panel{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px 22px; }
+
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+  @media (max-width:860px){ .grid-2{ grid-template-columns:1fr; } }
+
+  .empty-state{ color:var(--muted); font-size:13.5px; text-align:center; padding:36px 10px; }
+  .empty-state .big{ font-size:24px; margin-bottom:8px; }
+
+  /* ===== HOURLY BAR CHART ===== */
+  .hourchart{ display:flex; align-items:flex-end; gap:3px; height:140px; padding:0 2px; }
+  .hourchart .bar{ flex:1; background:var(--teal); border-radius:3px 3px 0 0; min-height:2px; opacity:.85; position:relative; transition:opacity .15s; }
+  .hourchart .bar:hover{ opacity:1; }
+  .hourchart .bar.peak{ background:var(--gold); opacity:1; }
+  .hourchart .bar.empty{ background:var(--border); opacity:.4; }
+  .hourchart-labels{ display:flex; gap:3px; padding:0 2px; margin-top:6px; }
+  .hourchart-labels span{ flex:1; text-align:center; font-size:9.5px; color:var(--muted-2); font-family:'JetBrains Mono',monospace; }
+  .chart-caption{ font-size:12.5px; color:var(--muted); margin-top:14px; text-align:center; }
+  .chart-caption b{ color:var(--text); }
+
+  /* ===== SETORES ===== */
+  .setor-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; }
+  .setor-card{ background:var(--panel-2); border:1px solid var(--border); border-radius:11px; padding:14px 16px; }
+  .setor-card .nm{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; margin-bottom:9px; display:flex; align-items:center; gap:8px; }
+  .setor-card .swatch{ width:9px; height:9px; border-radius:3px; flex-shrink:0; }
+  .setor-card .row{ display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); margin-top:4px; }
+  .setor-card .row b{ color:var(--text); font-family:'JetBrains Mono',monospace; }
+
+  /* ===== RANKING LIST ===== */
+  .rank-sort{ display:flex; gap:6px; }
+  .rank-head{
+    display:grid; grid-template-columns:34px 1fr 90px 90px 130px; gap:12px;
+    padding:0 12px 8px; font-size:10.5px; color:var(--muted-2); text-transform:uppercase; letter-spacing:.05em;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .rank-head span.num{ text-align:right; }
+  .rank-list{ display:flex; flex-direction:column; }
+  .rank-item{
+    display:grid; grid-template-columns:34px 1fr 90px 90px 130px; gap:12px; align-items:center;
+    padding:11px 12px; border-radius:8px; cursor:pointer; border-bottom:1px solid var(--border-soft);
+  }
+  .rank-item:last-child{ border-bottom:none; }
+  .rank-item:hover{ background:var(--panel-2); }
+  .rank-item .pos{ font-family:'JetBrains Mono',monospace; color:var(--muted); font-size:13px; }
+  .rank-item .pos.top1{ color:var(--gold); font-weight:700; }
+  .rank-item .pos.top2{ color:#c9c9d4; font-weight:700; }
+  .rank-item .pos.top3{ color:#cd8a4f; font-weight:700; }
+  .rank-item .nm{ font-size:13.5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .rank-item .setor-tag{ font-size:10px; color:var(--muted); background:var(--panel-2); padding:1px 8px; border-radius:10px; }
+  .rank-item .num{ text-align:right; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--muted); }
+  .rank-item .time-col{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+  .rank-item .time-val{ font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; }
+  .bar-track{ width:100%; height:5px; background:var(--panel-2); border-radius:3px; overflow:hidden; }
+  .bar-fill{ height:100%; background:linear-gradient(90deg,var(--gold),#d69a2d); border-radius:3px; }
+
+  /* ===== PERSON TAB ===== */
+  .person-picker{ display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
+  .person-picker input{
+    flex:1; min-width:220px; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 14px; border-radius:9px; font-size:13.5px;
+  }
+  .profile-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+  .profile-stats .s{ background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+  .profile-stats .s .l{ font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
+  .profile-stats .s .v{ font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600; margin-top:3px; }
+  @media (max-width:700px){ .profile-stats{ grid-template-columns:repeat(2,1fr);} }
+
+  .timeline{ display:flex; flex-direction:column; gap:6px; max-height:420px; overflow-y:auto; padding-right:4px; }
+  .t-row{ display:grid; grid-template-columns:92px 1fr 76px 60px; gap:10px; align-items:center; font-size:12.5px; padding:9px 12px; border-radius:8px; background:var(--panel-2); }
+  .t-row.suspicious{ border:1px solid var(--red); }
+  .t-row .d{ color:var(--muted); font-family:'JetBrains Mono',monospace; }
+  .t-row .rng{ font-family:'JetBrains Mono',monospace; }
+  .t-row .dur{ text-align:right; font-family:'JetBrains Mono',monospace; font-weight:600; }
+  .t-row .flag{ font-size:9.5px; color:var(--red); text-align:right; }
+
+  footer.note{ text-align:center; color:var(--muted-2); font-size:11px; padding:20px 0; }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  ::-webkit-scrollbar{ width:6px; height:6px; }
+  ::-webkit-scrollbar-thumb{ background:#333c4d; border-radius:4px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><div class="dot-clock"></div><h1>Pulso</h1></div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="overview">Visão Geral</button>
+      <button class="tab-btn" data-tab="ranking">Ranking</button>
+      <button class="tab-btn" data-tab="person">Pessoa</button>
+    </div>
+    <div class="live-status">
+      <span class="pulse"></span>
+      <span id="last-update">carregando…</span>
+      <button class="icon-btn" id="refresh-btn" title="Atualizar agora">↻</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="status-line" style="font-size:11.5px;color:var(--muted-2);font-family:'JetBrains Mono',monospace;padding:10px 2px 0;"></div>
+  <div id="err-banner"></div>
+  <div id="stall-banner" style="display:none;background:rgba(242,184,75,.08);border:1px solid var(--gold);color:#f2d9a3;padding:14px 16px;border-radius:10px;font-size:12.5px;margin:14px 0;line-height:1.6;"></div>
+
+  <!-- ===================== OVERVIEW TAB ===================== -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="page-head">
+      <h2>Visão geral</h2>
+      <div class="sub">Panorama do ponto no período selecionado</div>
+    </div>
+
+    <div class="filterbar" id="filterbar-overview"></div>
+
+    <div id="now-strip-overview"></div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="label">Pessoas ativas</div><div class="value" id="ov-kpi-people">—</div></div>
+      <div class="kpi"><div class="label">Horas totais</div><div class="value" id="ov-kpi-hours">—</div></div>
+      <div class="kpi"><div class="label">Duração média por visita</div><div class="value" id="ov-kpi-avg">—</div></div>
+      <div class="kpi"><div class="label">Visitas registradas</div><div class="value" id="ov-kpi-visits">—</div></div>
+    </div>
+
+    <section>
+      <div class="section-head">
+        <h2>Movimento por horário</h2>
+        <div class="hint">Média de pessoas presentes em cada hora, no período filtrado</div>
+      </div>
+      <div class="panel">
+        <div id="hourchart-wrap"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="grid-2">
+        <div>
+          <div class="section-head"><h2>Top 5 — mais tempo na empresa</h2></div>
+          <div class="panel"><div class="rank-list" id="ov-top5"></div></div>
+        </div>
+        <div>
+          <div class="section-head"><h2>Setores</h2></div>
+          <div class="panel"><div class="setor-grid" id="ov-setores"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="note" id="ov-footnote"></footer>
+  </div>
+
+  <footer class="note" id="build-tag" style="opacity:.5;"></footer>
+
+  <!-- ===================== RANKING TAB ===================== -->
+  <div class="tab-panel" id="tab-ranking">
+    <div class="page-head">
+      <h2>Ranking</h2>
+      <div class="sub">Todas as pessoas, ordenadas pelo tempo na empresa no período selecionado</div>
+    </div>
+
+    <div class="filterbar" id="filterbar-ranking"></div>
+
+    <div class="filterbar" style="margin-bottom:14px;">
+      <div class="filter-group">
+        <span class="filter-label">Ordenar por</span>
+        <div class="chip-row" id="rank-sort-chips" style="display:flex;gap:6px;">
+          <span class="chip active" data-sort="total">Tempo total</span>
+          <span class="chip" data-sort="days">Dias presentes</span>
+          <span class="chip" data-sort="avg">Média por visita</span>
+          <span class="chip" data-sort="name">Nome</span>
+        </div>
+      </div>
+      <div class="search-input"><input type="text" id="rank-search" placeholder="Buscar pessoa…"></div>
+    </div>
+
+    <div class="panel">
+      <div class="rank-head">
+        <span>#</span><span>Nome</span><span class="num">Dias</span><span class="num">Média</span><span class="num">Tempo total</span>
+      </div>
+      <div class="rank-list" id="full-rank-list"></div>
+    </div>
+  </div>
+
+  <!-- ===================== PERSON TAB ===================== -->
+  <div class="tab-panel" id="tab-person">
+    <div class="page-head">
+      <h2>Análise individual</h2>
+      <div class="sub">Histórico completo de uma pessoa (considera todo o período, sem filtro de data)</div>
+    </div>
+    <div class="person-picker">
+      <input list="person-datalist" id="person-input" placeholder="Digite o nome da pessoa…">
+      <datalist id="person-datalist"></datalist>
+    </div>
+    <div class="panel" id="profile-panel">
+      <div class="empty-state"><div class="big">🔍</div>Escolha alguém acima para ver o histórico detalhado.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============ CONFIG ============ */
+const SHEET_ID = '1D8Nm-fg8854eiPFxpvTDdtdy_ZbmKdPwZdGOtOQSQqk';
+const GID = 0;
+const SETORES_SHEET_NAME = 'Setores';
+const REFRESH_MS = 25000;
+const SETOR_COLORS = ['#F2B84B','#3FD6C6','#8B7CF6','#5DD68A','#F2545B','#5AA9E6','#E68FD6','#C9A227'];
+const BUILD_TAG = 'build v4 (api server-side) · ' + new Date().toISOString().slice(0,16).replace('T',' ') + ' UTC';
+document.addEventListener('DOMContentLoaded', ()=>{ const bt=document.getElementById('build-tag'); if(bt) bt.textContent = BUILD_TAG; });
+
+function setStatus(msg){
+  const el = document.getElementById('status-line');
+  if(el) el.textContent = msg;
+  console.log('[Pulso status]', msg);
+}
+
+let stallTimer = null;
+function armStallWatch(){
+  if(stallTimer) clearTimeout(stallTimer);
+  stallTimer = setTimeout(()=>{
+    if(!loadedOnce){
+      const b = document.getElementById('stall-banner');
+      b.style.display = 'block';
+      b.innerHTML = 'Passaram mais de 10s e nenhum dado chegou ainda. Teste abrindo <a href="/api/sheet?gid=0" target="_blank" style="color:#f2d9a3;text-decoration:underline;">/api/sheet?gid=0</a> direto numa aba nova.<br><br>'
+        + 'Se aparecer JSON com dados, o problema é no front-end (me avise). Se aparecer erro 500 ou uma mensagem sobre a planilha, o problema é permissão de compartilhamento.';
+    }
+  }, 10000);
+}
+
+let RAW_ROWS = [];
+let SESSIONS = [];
+let PRESENT_NOW = [];
+let DUP_COUNT = 0;
+let SETOR_MAP = {};
+let loadedOnce = false;
+let currentTab = 'overview';
+
+/* ============ DATA LOADER (via API própria do Vercel — sem script injection) ============ */
+async function fetchSheetJson(params){
+  const res = await fetch('/api/sheet?' + params + '&_=' + Date.now());
+  if(!res.ok){
+    throw new Error('A API respondeu com status ' + res.status);
+  }
+  return await res.json();
+}
+
+async function loadSheet(){
+  try{
+    const data = await fetchSheetJson('gid=0');
+    onSheetData(data);
+  }catch(e){
+    console.error(e);
+    showError('Não foi possível carregar a planilha através da API. Confira se ela está compartilhada como "Qualquer pessoa com o link pode visualizar", ou tente atualizar novamente. (' + e.message + ')');
+    setStatus('erro ao buscar dados — veja a faixa vermelha acima');
+  }
+  loadSetores();
+}
+async function loadSetores(){
+  try{
+    const data = await fetchSheetJson('name=' + encodeURIComponent(SETORES_SHEET_NAME));
+    onSetoresData(data);
+  }catch(e){
+    console.warn('Aba de Setores não carregada (ok se ainda não existir):', e.message);
+    SETOR_MAP = {};
+    if(loadedOnce) render();
+  }
+}
+function showError(msg){ const b=document.getElementById('err-banner'); b.style.display='block'; b.textContent=msg; }
+function clearError(){ document.getElementById('err-banner').style.display='none'; }
+
+/* ============ PARSING ============ */
+function cellStr(c){ if(!c) return ''; return c.v==null ? '' : String(c.v); }
+function normalizeTipo(raw){
+  const t = raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(t.includes('cheg')) return 'Chegada';
+  if(t.includes('sai')) return 'Saida';
+  return null;
+}
+function cellDate(c){
+  if(!c || c.v==null) return null;
+  const v = c.v;
+  if(typeof v === 'string'){
+    let m = v.match(/^Date\((\d+),(\d+),(\d+)/);
+    if(m) return { y:+m[1], mo:+m[2], d:+m[3] };
+    m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m) return { y:+m[3], mo:+m[2]-1, d:+m[1] };
+  }
+  return null;
+}
+function cellTime(c){
+  if(!c || c.v==null) return {h:0,m:0,s:0};
+  const v = c.v;
+  if(Array.isArray(v)) return { h:v[0]||0, m:v[1]||0, s:v[2]||0 };
+  if(typeof v === 'string'){
+    const m = v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if(m) return { h:+m[1], m:+m[2], s: m[3]?+m[3]:0 };
+  }
+  return {h:0,m:0,s:0};
+}
+
+function onSheetData(data){
+  try{
+    if(!data || data.status === 'error'){
+      showError('A planilha respondeu com erro. Verifique as permissões de compartilhamento.');
+      return;
+    }
+    clearError();
+    const cols = data.table.cols.map(c => (c.label||'').trim().toLowerCase());
+    const idx = {
+      nome: cols.findIndex(c=>c.includes('nome')),
+      tipo: cols.findIndex(c=>c.includes('tipo')),
+      data: cols.findIndex(c=>c.includes('data')),
+      hora: cols.findIndex(c=>c.includes('hora')),
+    };
+    if(idx.nome<0) idx.nome=0; if(idx.tipo<0) idx.tipo=1; if(idx.data<0) idx.data=2; if(idx.hora<0) idx.hora=3;
+
+    const rows = [];
+    for(const r of data.table.rows){
+      if(!r || !r.c) continue;
+      const nomeRaw = cellStr(r.c[idx.nome]).trim();
+      const tipoRaw = cellStr(r.c[idx.tipo]).trim();
+      if(!nomeRaw || !tipoRaw) continue;
+      const tipo = normalizeTipo(tipoRaw);
+      if(!tipo) continue;
+      const dp = cellDate(r.c[idx.data]);
+      if(!dp) continue;
+      const tp = cellTime(r.c[idx.hora]);
+      const ts = new Date(dp.y, dp.mo, dp.d, tp.h, tp.m, tp.s);
+      if(isNaN(ts.getTime())) continue;
+      rows.push({ nome: nomeRaw, tipo, ts });
+    }
+    RAW_ROWS = rows;
+    buildSessions();
+    document.getElementById('last-update').textContent = 'atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+    document.getElementById('stall-banner').style.display = 'none';
+    if(stallTimer) clearTimeout(stallTimer);
+    loadedOnce = true;
+    setStatus(`${RAW_ROWS.length} linhas lidas · ${SESSIONS.length} sessões válidas · ${PRESENT_NOW.length} presentes agora · atualizado às ${new Date().toLocaleTimeString('pt-BR')}`);
+    render();
+  }catch(e){
+    console.error(e);
+    showError('Erro ao processar os dados da planilha: ' + e.message + (e.stack ? ('\n' + e.stack.split('\n').slice(0,3).join('\n')) : ''));
+    setStatus('erro ao processar dados — veja a faixa vermelha acima');
+  }
+}
+
+function onSetoresData(data){
+  try{
+    if(!data || data.status === 'error'){ SETOR_MAP = {}; if(loadedOnce) render(); return; }
+    const cols = data.table.cols.map(c => (c.label||'').trim().toLowerCase());
+    const idxNome = cols.findIndex(c=>c.includes('nome')) >= 0 ? cols.findIndex(c=>c.includes('nome')) : 0;
+    const idxSetor = cols.findIndex(c=>c.includes('setor')) >= 0 ? cols.findIndex(c=>c.includes('setor')) : 1;
+    const map = {};
+    for(const r of data.table.rows){
+      if(!r || !r.c) continue;
+      const nome = cellStr(r.c[idxNome]).trim();
+      const setor = cellStr(r.c[idxSetor]).trim();
+      if(nome && setor) map[nome] = setor;
+    }
+    SETOR_MAP = map;
+    if(loadedOnce) render();
+  }catch(e){ console.error('erro ao ler aba de Setores', e); }
+}
+
+/* ============ SESSION BUILDING ============
+   Regra: uma sessão só existe se Chegada e Saída ocorrerem no MESMO DIA.
+   Chegada sem Saída no mesmo dia (dia já passado) -> desconsiderada.
+   Saída sem Chegada no mesmo dia -> desconsiderada.
+   Exceção: se a Chegada em aberto for de HOJE, a pessoa está presente agora (não é erro).
+============================================= */
+function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+function buildSessions(){
+  const byPerson = new Map();
+  for(const r of RAW_ROWS){
+    if(!byPerson.has(r.nome)) byPerson.set(r.nome, []);
+    byPerson.get(r.nome).push(r);
+  }
+  const sessions = [];
+  const presentNow = [];
+  let dupTotal = 0;
+  const today = dateKey(new Date());
+
+  for(const [nome, recs] of byPerson){
+    recs.sort((a,b)=>a.ts-b.ts);
+    const collapsed = [];
+    for(const r of recs){
+      const last = collapsed[collapsed.length-1];
+      if(last && last.tipo === r.tipo){ dupTotal++; continue; }
+      collapsed.push(r);
+    }
+    let open = null;
+    for(const r of collapsed){
+      if(r.tipo === 'Chegada'){
+        open = r; // uma chegada nova sempre substitui uma anterior não fechada (a anterior é descartada)
+      } else {
+        if(open && dateKey(open.ts) === dateKey(r.ts)){
+          const durationMs = r.ts - open.ts;
+          if(durationMs > 0) sessions.push({ nome, start:open.ts, end:r.ts, durationMs, suspicious: durationMs > 12*3600*1000 });
+        }
+        open = null; // saída sem chegada no mesmo dia (ou chegada de outro dia) -> descarta os dois, sem sessão
+      }
+    }
+    if(open && dateKey(open.ts) === today){
+      presentNow.push({ nome, ts: open.ts });
+    }
+    // chegada em aberto de um dia passado -> descartada silenciosamente (nada a fazer)
+  }
+  SESSIONS = sessions;
+  PRESENT_NOW = presentNow;
+  DUP_COUNT = dupTotal;
+}
+
+/* ============ FILTER STATE ============ */
+const filters = {
+  mode: 'all',        // 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'day'
+  customDay: null,     // Date when mode === 'day'
+  setor: '',
+  hourPreset: 'all',   // 'all' | 'morning' | 'afternoon' | 'evening'
+};
+
+function rangeForMode(mode){
+  const now = new Date();
+  const startOf = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if(mode==='today') return { from:startOf(now), to:startOf(now) };
+  if(mode==='yesterday'){ const y=new Date(now); y.setDate(now.getDate()-1); return { from:startOf(y), to:startOf(y) }; }
+  if(mode==='week'){ const day=now.getDay(); const monday=new Date(now); monday.setDate(now.getDate()-((day+6)%7)); return { from:startOf(monday), to:startOf(now) }; }
+  if(mode==='month') return { from:new Date(now.getFullYear(), now.getMonth(), 1), to:startOf(now) };
+  return { from:null, to:null };
+}
+
+function hourRangeForPreset(preset){
+  if(preset==='morning') return [6,12];
+  if(preset==='afternoon') return [12,18];
+  if(preset==='evening') return [18,24];
+  return [0,24];
+}
+
+function filteredSessions(){
+  let from=null, to=null;
+  if(filters.mode==='day' && filters.customDay){ from=filters.customDay; to=filters.customDay; }
+  else if(filters.mode!=='all'){ const rg=rangeForMode(filters.mode); from=rg.from; to=rg.to; }
+
+  const [hFrom,hTo] = hourRangeForPreset(filters.hourPreset);
+
+  return SESSIONS.filter(s=>{
+    if(from && s.start < from) return false;
+    if(to){ const end=new Date(to); end.setHours(23,59,59,999); if(s.start > end) return false; }
+    if(filters.setor && (SETOR_MAP[s.nome]||'Sem setor') !== filters.setor) return false;
+    const startHour = s.start.getHours();
+    if(startHour < hFrom || startHour >= hTo) return false;
+    return true;
+  });
+}
+
+/* ============ AGGREGATION ============ */
+function aggregateByPerson(sessions){
+  const map = new Map();
+  for(const s of sessions){
+    if(!map.has(s.nome)) map.set(s.nome, { nome:s.nome, totalMs:0, count:0, days:new Set(), maxMs:0 });
+    const a = map.get(s.nome);
+    a.totalMs += s.durationMs; a.count += 1; a.days.add(dateKey(s.start)); a.maxMs = Math.max(a.maxMs, s.durationMs);
+  }
+  return Array.from(map.values()).map(a=>({...a, daysCount:a.days.size, avgMs:a.totalMs/a.count}));
+}
+function fmtDuration(ms){
+  if(ms==null || isNaN(ms)) return '—';
+  const totalMin = Math.round(ms/60000);
+  const h = Math.floor(totalMin/60), m = totalMin%60;
+  return h>0 ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}m`;
+}
+function fmtHoursShort(ms){ return (ms/3600000).toFixed(1).replace('.0',''); }
+
+function hourlyPresence(sessions){
+  const perDay = {};
+  for(const s of sessions){
+    const dk = dateKey(s.start);
+    if(!perDay[dk]) perDay[dk] = Array(24).fill(0);
+    const startH = s.start.getHours() + s.start.getMinutes()/60;
+    const endSameDay = (dateKey(s.end)===dk);
+    const endH = endSameDay ? (s.end.getHours() + s.end.getMinutes()/60) : 24;
+    for(let h=0;h<24;h++){ if(startH < h+1 && endH > h) perDay[dk][h] += 1; }
+  }
+  const days = Object.keys(perDay);
+  const avg = Array(24).fill(0);
+  days.forEach(dk => { for(let h=0;h<24;h++) avg[h] += perDay[dk][h]; });
+  for(let h=0;h<24;h++) avg[h] = days.length ? avg[h]/days.length : 0;
+  return avg;
+}
+
+/* ============ HELPERS ============ */
+function escHtml(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function escAttr(s){ return escHtml(s); }
+function allNames(){ return Array.from(new Set(RAW_ROWS.map(r=>r.nome))).sort((a,b)=>a.localeCompare(b,'pt-BR')); }
+function dataDaySet(){ return new Set(RAW_ROWS.map(r=>dateKey(r.ts))); }
+
+/* ============ FILTER BAR (shared component, rendered into 2 places) ============ */
+let calendarViewMonth = new Date();
+let calOpenFor = null; // 'overview' | 'ranking' | null
+
+function filterBarHtml(prefix){
+  const chips = [
+    ['all','Tudo'], ['today','Hoje'], ['yesterday','Ontem'], ['week','Esta semana'], ['month','Este mês']
+  ];
+  const chipHtml = chips.map(([key,label])=>
+    `<span class="chip ${filters.mode===key?'active':''}" data-mode="${key}" data-prefix="${prefix}">${label}</span>`
+  ).join('');
+
+  const dayLabel = filters.mode==='day' && filters.customDay
+    ? filters.customDay.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})
+    : null;
+
+  const hourChips = [
+    ['all','Todo o dia'],['morning','Manhã'],['afternoon','Tarde'],['evening','Noite']
+  ].map(([key,label])=>
+    `<span class="chip ${filters.hourPreset===key?'active':''}" data-hour="${key}" data-prefix="${prefix}">${label}</span>`
+  ).join('');
+
+  const setores = Array.from(new Set(allNames().map(n=>SETOR_MAP[n]||'Sem setor'))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const setorOptions = '<option value="">Todos os setores</option>' + setores.map(s=>`<option value="${escAttr(s)}" ${filters.setor===s?'selected':''}>${escHtml(s)}</option>`).join('');
+
+  return `
+    <div class="filter-group">
+      <span class="filter-label">Período</span>
+      ${chipHtml}
+      ${dayLabel ? `<span class="chip custom-day" data-clear-day="1" data-prefix="${prefix}">${dayLabel} <span class="x">✕</span></span>` : ''}
+      <div class="cal-btn-wrap">
+        <button class="cal-btn" data-cal-toggle="1" data-prefix="${prefix}">📅 Calendário</button>
+        <div class="cal-popover" id="cal-pop-${prefix}"></div>
+      </div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Hora</span>
+      ${hourChips}
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Setor</span>
+      <select data-setor-select="1" data-prefix="${prefix}">${setorOptions}</select>
+    </div>
+  `;
+}
+
+function renderFilterBars(){
+  document.getElementById('filterbar-overview').innerHTML = filterBarHtml('overview');
+  document.getElementById('filterbar-ranking').innerHTML = filterBarHtml('ranking');
+  wireFilterBar('overview');
+  wireFilterBar('ranking');
+}
+
+function wireFilterBar(prefix){
+  const bar = document.getElementById('filterbar-'+prefix);
+  bar.querySelectorAll('[data-mode]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      filters.mode = el.dataset.mode; filters.customDay = null;
+      renderFilterBars(); render();
+    });
+  });
+  const clearDay = bar.querySelector('[data-clear-day]');
+  if(clearDay){
+    clearDay.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      filters.mode='all'; filters.customDay=null;
+      renderFilterBars(); render();
+    });
+  }
+  bar.querySelectorAll('[data-hour]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      filters.hourPreset = el.dataset.hour;
+      renderFilterBars(); render();
+    });
+  });
+  const setorSel = bar.querySelector('[data-setor-select]');
+  if(setorSel){
+    setorSel.addEventListener('change', ()=>{ filters.setor = setorSel.value; render(); });
+  }
+  const calToggle = bar.querySelector('[data-cal-toggle]');
+  if(calToggle){
+    calToggle.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const isOpen = calOpenFor === prefix;
+      closeAllCalendars();
+      if(!isOpen){ calOpenFor = prefix; calendarViewMonth = filters.customDay ? new Date(filters.customDay) : new Date(); renderCalendar(prefix); }
+    });
+  }
+}
+
+function closeAllCalendars(){
+  document.querySelectorAll('.cal-popover').forEach(p=>p.classList.remove('open'));
+  calOpenFor = null;
+}
+document.addEventListener('click', closeAllCalendars);
+
+function renderCalendar(prefix){
+  const pop = document.getElementById('cal-pop-'+prefix);
+  const y = calendarViewMonth.getFullYear(), m = calendarViewMonth.getMonth();
+  const monthLabel = calendarViewMonth.toLocaleDateString('pt-BR',{month:'long', year:'numeric'});
+  const firstDow = new Date(y,m,1).getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const hasData = dataDaySet();
+  const todayKey = dateKey(new Date());
+  const selectedKey = filters.customDay ? dateKey(filters.customDay) : null;
+
+  let grid = ['D','S','T','Q','Q','S','S'].map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<firstDow;i++) grid += `<div class="cal-day empty"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const dk = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const cls = ['cal-day'];
+    if(hasData.has(dk)) cls.push('has-data');
+    if(dk===todayKey) cls.push('today');
+    if(dk===selectedKey) cls.push('selected');
+    grid += `<div class="${cls.join(' ')}" data-day="${dk}">${d}</div>`;
+  }
+
+  pop.innerHTML = `
+    <div class="cal-nav">
+      <button data-cal-prev="1">‹</button>
+      <span class="lbl">${monthLabel}</span>
+      <button data-cal-next="1">›</button>
+    </div>
+    <div class="cal-grid">${grid}</div>
+  `;
+  pop.classList.add('open');
+  pop.addEventListener('click', e=>e.stopPropagation());
+  pop.querySelector('[data-cal-prev]').addEventListener('click', ()=>{ calendarViewMonth = new Date(y,m-1,1); renderCalendar(prefix); });
+  pop.querySelector('[data-cal-next]').addEventListener('click', ()=>{ calendarViewMonth = new Date(y,m+1,1); renderCalendar(prefix); });
+  pop.querySelectorAll('.cal-day[data-day]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const [yy,mm,dd] = el.dataset.day.split('-').map(Number);
+      filters.customDay = new Date(yy, mm-1, dd);
+      filters.mode = 'day';
+      closeAllCalendars();
+      renderFilterBars(); render();
+    });
+  });
+}
+
+/* ============ RENDER: HOUR CHART ============ */
+function renderHourChart(sessions){
+  const avg = hourlyPresence(sessions);
+  const max = Math.max(...avg, 0.0001);
+  const peakH = avg.indexOf(Math.max(...avg));
+  let bars = '', labels = '';
+  for(let h=0; h<24; h++){
+    const pct = Math.max(2, (avg[h]/max)*100);
+    const isPeak = avg[h] > 0 && avg[h] === Math.max(...avg);
+    bars += `<div class="bar ${isPeak?'peak':''} ${avg[h]===0?'empty':''}" style="height:${pct}%" title="${String(h).padStart(2,'0')}h: ~${avg[h].toFixed(1)} pessoas"></div>`;
+    labels += `<span>${h%3===0?String(h).padStart(2,'0'):''}</span>`;
+  }
+  const wrap = document.getElementById('hourchart-wrap');
+  if(sessions.length===0){
+    wrap.innerHTML = `<div class="empty-state"><div class="big">📭</div>Nenhuma sessão completa nesse período.<br>Tente ampliar o filtro (ex: "Tudo").</div>`;
+    return;
+  }
+  const quietSorted = avg.map((v,h)=>({h,v})).filter(x=>x.v>0).sort((a,b)=>a.v-b.v);
+  const quietest = quietSorted[0];
+  wrap.innerHTML = `
+    <div class="hourchart">${bars}</div>
+    <div class="hourchart-labels">${labels}</div>
+    <div class="chart-caption">
+      Pico de movimento: <b>${String(peakH).padStart(2,'0')}h–${String(peakH+1).padStart(2,'0')}h</b> (~${avg[peakH].toFixed(1)} pessoas)
+      ${quietest ? ` · Mais vazio: <b>${String(quietest.h).padStart(2,'0')}h–${String(quietest.h+1).padStart(2,'0')}h</b> (~${quietest.v.toFixed(1)} pessoas)` : ''}
+    </div>
+  `;
+}
+
+/* ============ RENDER: NOW STRIP ============ */
+function renderNowStrip(targetId){
+  const el = document.getElementById(targetId);
+  if(!PRESENT_NOW.length){ el.innerHTML=''; return; }
+  el.innerHTML = `<div class="now-strip">
+    <span class="title"><span class="pulse"></span>Na empresa agora (${PRESENT_NOW.length})</span>
+    ${PRESENT_NOW.map(p=>`<span class="now-tag">${escHtml(p.nome)} · desde ${p.ts.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>`).join('')}
+  </div>`;
+}
+
+/* ============ RENDER: OVERVIEW ============ */
+function renderOverview(){
+  const sessions = filteredSessions();
+  const people = aggregateByPerson(sessions);
+  const totalMs = sessions.reduce((a,s)=>a+s.durationMs,0);
+  const avgMs = sessions.length ? totalMs/sessions.length : 0;
+
+  document.getElementById('ov-kpi-people').textContent = people.length;
+  document.getElementById('ov-kpi-hours').innerHTML = fmtHoursShort(totalMs)+'<span class="unit">h</span>';
+  document.getElementById('ov-kpi-avg').textContent = fmtDuration(avgMs);
+  document.getElementById('ov-kpi-visits').textContent = sessions.length;
+
+  renderNowStrip('now-strip-overview');
+  renderHourChart(sessions);
+
+  const top5 = [...people].sort((a,b)=>b.totalMs-a.totalMs).slice(0,5);
+  const listEl = document.getElementById('ov-top5');
+  listEl.innerHTML = top5.length ? top5.map((p,i)=>rankItemHtml(p, i+1, Math.max(...top5.map(x=>x.totalMs)))).join('')
+    : '<div class="empty-state">Sem dados no período.</div>';
+  wireRankClicks(listEl);
+
+  const bySetor = new Map();
+  for(const p of people){
+    const s = SETOR_MAP[p.nome] || 'Sem setor';
+    if(!bySetor.has(s)) bySetor.set(s, { setor:s, totalMs:0, pessoas:0 });
+    const o = bySetor.get(s); o.totalMs += p.totalMs; o.pessoas += 1;
+  }
+  const setorArr = Array.from(bySetor.values()).sort((a,b)=>b.totalMs-a.totalMs);
+  const setorEl = document.getElementById('ov-setores');
+  setorEl.innerHTML = setorArr.length ? setorArr.map((s,i)=>`
+    <div class="setor-card">
+      <div class="nm"><span class="swatch" style="background:${SETOR_COLORS[i%SETOR_COLORS.length]}"></span>${escHtml(s.setor)}</div>
+      <div class="row"><span>Tempo total</span><b>${fmtDuration(s.totalMs)}</b></div>
+      <div class="row"><span>Pessoas</span><b>${s.pessoas}</b></div>
+      <div class="row"><span>Média/pessoa</span><b>${fmtDuration(s.totalMs/s.pessoas)}</b></div>
+    </div>`).join('') : '<div class="empty-state">Sem dados no período.</div>';
+
+  document.getElementById('ov-footnote').textContent = DUP_COUNT>0
+    ? `${DUP_COUNT} cliques duplicados foram identificados e ignorados automaticamente.`
+    : '';
+}
+
+function rankItemHtml(p, pos, maxMs){
+  const setor = SETOR_MAP[p.nome] || 'Sem setor';
+  const pct = Math.max(4, (p.totalMs/maxMs)*100);
+  const posClass = pos===1?'top1':pos===2?'top2':pos===3?'top3':'';
+  return `<div class="rank-item" data-person="${escAttr(p.nome)}" style="grid-template-columns:34px 1fr 130px;">
+    <div class="pos ${posClass}">${pos}</div>
+    <div class="nm">${escHtml(p.nome)}<span class="setor-tag">${escHtml(setor)}</span></div>
+    <div class="time-col">
+      <div class="time-val">${fmtDuration(p.totalMs)}</div>
+      <div class="bar-track" style="width:110px;"><div class="bar-fill" style="width:${pct}%"></div></div>
+    </div>
+  </div>`;
+}
+function wireRankClicks(container){
+  container.querySelectorAll('.rank-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      selectPerson(el.dataset.person);
+      switchTab('person');
+    });
+  });
+}
+
+/* ============ RENDER: RANKING TAB ============ */
+let rankSort = 'total';
+function renderRanking(){
+  const sessions = filteredSessions();
+  let people = aggregateByPerson(sessions);
+  const q = (document.getElementById('rank-search').value || '').trim().toLowerCase();
+  if(q) people = people.filter(p=>p.nome.toLowerCase().includes(q));
+
+  if(rankSort==='total') people.sort((a,b)=>b.totalMs-a.totalMs);
+  else if(rankSort==='days') people.sort((a,b)=>b.daysCount-a.daysCount);
+  else if(rankSort==='avg') people.sort((a,b)=>b.avgMs-a.avgMs);
+  else if(rankSort==='name') people.sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+
+  const list = document.getElementById('full-rank-list');
+  if(!people.length){ list.innerHTML = '<div class="empty-state"><div class="big">📭</div>Nenhuma pessoa encontrada nesse período/filtro.</div>'; return; }
+  const maxMs = Math.max(...people.map(p=>p.totalMs), 1);
+  list.innerHTML = people.map((p,i)=>{
+    const setor = SETOR_MAP[p.nome] || 'Sem setor';
+    const pct = Math.max(4, (p.totalMs/maxMs)*100);
+    const posClass = i===0?'top1':i===1?'top2':i===2?'top3':'';
+    return `<div class="rank-item" data-person="${escAttr(p.nome)}">
+      <div class="pos ${posClass}">${i+1}</div>
+      <div class="nm">${escHtml(p.nome)}<span class="setor-tag">${escHtml(setor)}</span></div>
+      <div class="num">${p.daysCount}</div>
+      <div class="num">${fmtDuration(p.avgMs)}</div>
+      <div class="time-col">
+        <div class="time-val">${fmtDuration(p.totalMs)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+  wireRankClicks(list);
+}
+
+/* ============ RENDER: PERSON TAB ============ */
+let currentPerson = '';
+function selectPerson(nome){
+  currentPerson = nome;
+  document.getElementById('person-input').value = nome;
+  renderProfile();
+}
+function renderProfile(){
+  const panel = document.getElementById('profile-panel');
+  if(!currentPerson){ panel.innerHTML = '<div class="empty-state"><div class="big">🔍</div>Escolha alguém acima para ver o histórico detalhado.</div>'; return; }
+  const personSessions = SESSIONS.filter(s=>s.nome===currentPerson).sort((a,b)=>b.start-a.start);
+  const agg = aggregateByPerson(personSessions)[0];
+  const setor = SETOR_MAP[currentPerson] || 'Sem setor';
+  const isPresent = PRESENT_NOW.some(p=>p.nome===currentPerson);
+
+  if(!agg){
+    panel.innerHTML = `<div class="empty-state"><div class="big">🕳️</div>${escHtml(currentPerson)} ainda não tem nenhuma sessão completa (chegada + saída no mesmo dia) registrada.</div>`;
+    return;
+  }
+  let html = '';
+  if(isPresent){
+    const ts = PRESENT_NOW.find(p=>p.nome===currentPerson).ts;
+    html += `<div class="now-strip"><span class="title"><span class="pulse"></span>Está na empresa agora, desde ${ts.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+  }
+  html += `<div class="profile-stats">
+    <div class="s"><div class="l">Setor</div><div class="v" style="font-size:14px;">${escHtml(setor)}</div></div>
+    <div class="s"><div class="l">Tempo total</div><div class="v">${fmtDuration(agg.totalMs)}</div></div>
+    <div class="s"><div class="l">Dias presente</div><div class="v">${agg.daysCount}</div></div>
+    <div class="s"><div class="l">Média por visita</div><div class="v" style="font-size:14px;">${fmtDuration(agg.avgMs)}</div></div>
+  </div>
+  <div class="timeline">`;
+  html += personSessions.map(s=>{
+    const d = s.start.toLocaleDateString('pt-BR');
+    const t1 = s.start.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const t2 = s.end.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="t-row ${s.suspicious?'suspicious':''}">
+      <div class="d">${d}</div><div class="rng">${t1} → ${t2}</div>
+      <div class="dur">${fmtDuration(s.durationMs)}</div>
+      <div class="flag">${s.suspicious?'checar':''}</div>
+    </div>`;
+  }).join('');
+  html += '</div>';
+  panel.innerHTML = html;
+}
+
+/* ============ TABS ============ */
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+tab));
+  render();
+}
+document.querySelectorAll('.tab-btn').forEach(b=> b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
+
+/* ============ EVENTS ============ */
+document.getElementById('refresh-btn').addEventListener('click', loadSheet);
+document.getElementById('rank-search').addEventListener('input', renderRanking);
+document.getElementById('rank-sort-chips').addEventListener('click', (e)=>{
+  const chip = e.target.closest('[data-sort]');
+  if(!chip) return;
+  rankSort = chip.dataset.sort;
+  document.querySelectorAll('#rank-sort-chips .chip').forEach(c=>c.classList.toggle('active', c===chip));
+  renderRanking();
+});
+document.getElementById('person-input').addEventListener('change', (e)=>{
+  const v = e.target.value.trim();
+  const match = allNames().find(n=>n.toLowerCase()===v.toLowerCase());
+  if(match){ selectPerson(match); }
+});
+
+/* ============ MASTER RENDER ============ */
+function safe(fn, label){
+  try{ fn(); }
+  catch(e){ console.error('[Pulso] erro em '+label, e); }
+}
+function render(){
+  safe(renderFilterBars, 'renderFilterBars');
+  safe(()=>{ document.getElementById('person-datalist').innerHTML = allNames().map(n=>`<option value="${escAttr(n)}">`).join(''); }, 'datalist');
+  if(currentTab==='overview') safe(renderOverview, 'renderOverview');
+  else if(currentTab==='ranking') safe(renderRanking, 'renderRanking');
+  else if(currentTab==='person') safe(renderProfile, 'renderProfile');
+}
+
+/* ============ INIT ============ */
+setStatus('conectando na planilha…');
+armStallWatch();
+loadSheet();
+setInterval(loadSheet, REFRESH_MS);
+</script>
+</body>
+</html>
