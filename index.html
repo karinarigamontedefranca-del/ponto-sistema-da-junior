@@ -381,19 +381,27 @@ let currentTab = 'overview';
 /* ============ DATA LOADER (via API própria do Vercel — sem script injection) ============ */
 async function fetchSheetJson(params){
   const res = await fetch('/api/sheet?' + params + '&_=' + Date.now());
-  if(!res.ok){
-    throw new Error('A API respondeu com status ' + res.status);
+  const data = await res.json().catch(()=>null);
+  if(!res.ok || !data){
+    throw new Error('API status ' + res.status + (data ? ' — ' + JSON.stringify(data).slice(0,300) : ''));
   }
-  return await res.json();
+  return data;
 }
 
 async function loadSheet(){
   try{
     const data = await fetchSheetJson('gid=0');
+    if(data.status === 'error'){
+      const detail = (data.errors && data.errors[0] && data.errors[0].message) || 'motivo desconhecido';
+      const snippet = data.upstream_snippet ? ('<br><br><span style="font-size:11px;opacity:.8;">Resposta do Google (início): '+escHtml(data.upstream_snippet)+'</span>') : '';
+      showError('A planilha de ponto não pôde ser carregada: ' + detail + snippet);
+      setStatus('erro ao buscar dados — veja a faixa vermelha acima');
+      return;
+    }
     onSheetData(data);
   }catch(e){
     console.error(e);
-    showError('Não foi possível carregar a planilha através da API. Confira se ela está compartilhada como "Qualquer pessoa com o link pode visualizar", ou tente atualizar novamente. (' + e.message + ')');
+    showError('Não foi possível chamar a API /api/sheet. Detalhe técnico: ' + e.message);
     setStatus('erro ao buscar dados — veja a faixa vermelha acima');
   }
   loadSetores();
@@ -408,7 +416,7 @@ async function loadSetores(){
     if(loadedOnce) render();
   }
 }
-function showError(msg){ const b=document.getElementById('err-banner'); b.style.display='block'; b.textContent=msg; }
+function showError(msg){ const b=document.getElementById('err-banner'); b.style.display='block'; b.innerHTML=msg; }
 function clearError(){ document.getElementById('err-banner').style.display='none'; }
 
 /* ============ PARSING ============ */
