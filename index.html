@@ -428,7 +428,14 @@ function normalizeTipo(raw){
   return null;
 }
 function cellDate(c){
-  if(!c || c.v==null) return null;
+  if(!c) return null;
+  // Prioridade 1: usar o valor FORMATADO (o texto que aparece na planilha),
+  // que é sempre consistente independente de como a célula foi digitada.
+  if(c.f){
+    const m = c.f.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(m) return { y:+m[3], mo:+m[2]-1, d:+m[1] };
+  }
+  if(c.v==null) return null;
   const v = c.v;
   if(typeof v === 'string'){
     let m = v.match(/^Date\((\d+),(\d+),(\d+)/);
@@ -436,15 +443,33 @@ function cellDate(c){
     m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if(m) return { y:+m[3], mo:+m[2]-1, d:+m[1] };
   }
+  if(typeof v === 'number'){
+    // serial date do Sheets/Excel: dias desde 30/12/1899
+    const epoch = new Date(Date.UTC(1899,11,30));
+    const d = new Date(epoch.getTime() + Math.floor(v) * 86400000);
+    return { y:d.getUTCFullYear(), mo:d.getUTCMonth(), d:d.getUTCDate() };
+  }
   return null;
 }
 function cellTime(c){
-  if(!c || c.v==null) return {h:0,m:0,s:0};
+  if(!c) return {h:0,m:0,s:0};
+  // Prioridade 1: valor formatado (texto "10:32:43" que aparece na planilha)
+  if(c.f){
+    const m = c.f.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if(m) return { h:+m[1], m:+m[2], s: m[3]?+m[3]:0 };
+  }
+  if(c.v==null) return {h:0,m:0,s:0};
   const v = c.v;
   if(Array.isArray(v)) return { h:v[0]||0, m:v[1]||0, s:v[2]||0 };
   if(typeof v === 'string'){
-    const m = v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    const m = v.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
     if(m) return { h:+m[1], m:+m[2], s: m[3]?+m[3]:0 };
+  }
+  if(typeof v === 'number'){
+    // fração do dia (0 a 1, ou >1 se vier junto com a parte inteira da data)
+    const frac = v - Math.floor(v);
+    const totalSec = Math.round(frac * 86400);
+    return { h: Math.floor(totalSec/3600), m: Math.floor((totalSec%3600)/60), s: totalSec%60 };
   }
   return {h:0,m:0,s:0};
 }
@@ -457,6 +482,9 @@ function onSheetData(data){
     }
     clearError();
     const cols = data.table.cols.map(c => (c.label||'').trim().toLowerCase());
+    if(data.table.rows && data.table.rows[0]){
+      console.log('[Pulso] amostra de linha bruta da planilha:', JSON.stringify(data.table.rows[0]));
+    }
     const idx = {
       nome: cols.findIndex(c=>c.includes('nome')),
       tipo: cols.findIndex(c=>c.includes('tipo')),
