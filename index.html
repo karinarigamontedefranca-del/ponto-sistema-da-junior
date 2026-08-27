@@ -338,6 +338,15 @@
 
   <footer class="note" id="build-tag" style="opacity:.5;"></footer>
 
+  <div style="text-align:center;margin-top:-8px;">
+    <button id="diag-toggle" class="btn-link" style="font-size:11px;opacity:.6;">🔎 diagnóstico de uma pessoa</button>
+  </div>
+  <div id="diag-panel" style="display:none;max-width:700px;margin:16px auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Digite um nome (ou parte dele) pra ver exatamente o que o sistema está enxergando pra essa pessoa: linhas cruas da planilha, como foram interpretadas, e as sessões resultantes.</div>
+    <input type="text" id="diag-input" placeholder="ex: Vitor" style="width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:14px;">
+    <div id="diag-output" class="mono" style="font-size:11.5px;white-space:pre-wrap;line-height:1.6;max-height:400px;overflow-y:auto;"></div>
+  </div>
+
   <!-- ===================== RANKING TAB ===================== -->
   <div class="tab-panel" id="tab-ranking">
     <div class="page-head">
@@ -1379,6 +1388,47 @@ function render(){
   else if(currentTab==='setores') safe(renderSetoresTab, 'renderSetoresTab');
   else if(currentTab==='person') safe(renderProfile, 'renderProfile');
 }
+
+/* ============ DIAGNÓSTICO DE PESSOA ============ */
+document.getElementById('diag-toggle').addEventListener('click', ()=>{
+  const p = document.getElementById('diag-panel');
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+});
+document.getElementById('diag-input').addEventListener('input', (e)=>{
+  const q = normalizeName(e.target.value.trim());
+  const out = document.getElementById('diag-output');
+  if(!q){ out.textContent=''; return; }
+
+  const matches = RAW_ROWS.filter(r => normalizeName(r.nome).includes(q)).sort((a,b)=>a.ts-b.ts);
+  if(!matches.length){
+    out.textContent = `Nenhuma linha na planilha com nome contendo "${e.target.value}".\nTotal de linhas carregadas: ${RAW_ROWS.length}.\nNomes distintos disponíveis: ${allNames().join(', ')}`;
+    return;
+  }
+  const nomesEncontrados = Array.from(new Set(matches.map(r=>r.nome)));
+  let txt = `Nome(s) encontrado(s) na planilha: ${nomesEncontrados.join(' | ')}\n`;
+  txt += `Total de linhas: ${matches.length}\n`;
+  txt += `Setor resolvido: ${nomesEncontrados.map(n=>n+' -> '+getSetor(n)).join(' ; ')}\n\n`;
+  txt += `--- linhas brutas (ordenadas por horário) ---\n`;
+  matches.forEach(r=>{
+    txt += `${r.ts.toLocaleString('pt-BR')}  |  ${r.tipo}\n`;
+  });
+
+  const sess = SESSIONS.filter(s=>nomesEncontrados.includes(s.nome)).sort((a,b)=>a.start-b.start);
+  txt += `\n--- sessões válidas formadas (chegada+saída no mesmo dia): ${sess.length} ---\n`;
+  sess.forEach(s=>{
+    txt += `${s.start.toLocaleDateString('pt-BR')}: ${s.start.toLocaleTimeString('pt-BR')} → ${s.end.toLocaleTimeString('pt-BR')} (${fmtDuration(s.durationMs)})${s.suspicious?' [SUSPEITA >12h]':''}\n`;
+  });
+  if(sess.length===0){
+    txt += `\nNenhuma sessão válida. Motivos possíveis:\n`;
+    txt += `- Todas as marcações são do mesmo tipo em sequência (ex: só "Chegada", nunca alterna pra "Saída")\n`;
+    txt += `- Chegada e Saída sempre caem em dias diferentes (ex: bate ponto passando da meia-noite)\n`;
+    txt += `- A pessoa só bateu ponto hoje e ainda não bateu saída (aí ela aparece como "presente agora", não como sessão)\n`;
+  }
+  const presente = PRESENT_NOW.find(p=>nomesEncontrados.includes(p.nome));
+  if(presente) txt += `\n>>> Está marcado como PRESENTE AGORA desde ${presente.ts.toLocaleString('pt-BR')}\n`;
+
+  out.textContent = txt;
+});
 
 /* ============ INIT ============ */
 setStatus('conectando na planilha…');
