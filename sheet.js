@@ -18,8 +18,24 @@ module.exports = async (req, res) => {
     }
     url += `&headers=1`;
 
-    const upstream = await fetch(url);
+    const upstream = await fetch(url, {
+      headers: {
+        // Alguns pedidos sem cara de navegador levam o Google a devolver
+        // uma página de erro/aviso em vez do JSON. Isso evita esse caso.
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/plain, */*',
+      }
+    });
     const text = await upstream.text();
+
+    if (!upstream.ok) {
+      res.status(502).json({
+        status: 'error',
+        errors: [{ reason: 'upstream_http_' + upstream.status, message: `O Google respondeu com HTTP ${upstream.status}.` }],
+        upstream_snippet: text.slice(0, 400)
+      });
+      return;
+    }
 
     // A resposta do Google vem embrulhada em algo como:
     // /*O_o*/\ngoogle.visualization.Query.setResponse({...});
@@ -32,9 +48,14 @@ module.exports = async (req, res) => {
     } catch (parseErr) {
       res.status(502).json({
         status: 'error',
-        errors: [{ reason: 'parse_failed', message: 'Não foi possível interpretar a resposta do Google Sheets. A planilha pode não estar pública, ou a aba não existe.' }],
-        upstream_snippet: text.slice(0, 300)
+        errors: [{ reason: 'parse_failed', message: 'A resposta do Google não veio no formato esperado (pode ser bloqueio, redirecionamento de login, ou a aba não existe).' }],
+        upstream_snippet: text.slice(0, 400)
       });
+      return;
+    }
+
+    if (data.status === 'error') {
+      res.status(200).json(data); // repassa o erro real do Google (ex: aba inexistente) sem mascarar
       return;
     }
 
